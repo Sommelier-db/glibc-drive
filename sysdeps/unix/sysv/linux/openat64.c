@@ -18,8 +18,11 @@
 
 #include <fcntl.h>
 #include <stdarg.h>
-
+#include <string.h>
+#include <unistd.h>
+#include <stdlib.h>
 #include <sysdep-cancel.h>
+#include <drive_common.h>
 
 /* Open FILE with access OFLAG.  Interpret relative paths relative to
    the directory associated with FD.  If OFLAG includes O_CREAT or
@@ -35,6 +38,16 @@ __libc_openat64 (int fd, const char *file, int oflag, ...)
       mode = va_arg (arg, mode_t);
       va_end (arg);
     }
+
+  // if(fd_drivepath_table[fd] != NULL && file[0] != '/'){
+  //   char *opath = (char*)malloc(strlen(fd_drivepath_table[fd]) + strlen(file) + 2);
+  //   strcpy(opath, fd_drivepath_table[fd]);
+  //   opath[strlen(fd_drivepath_table[fd])] = '/';
+  //   strcpy(opath + strlen(fd_drivepath_table[fd]) + 1, file);
+  //   int ret = open(opath, oflag, mode);
+  //   free(opath);
+  //   return ret;
+  // }
 
   return SYSCALL_CANCEL (openat, fd, file, oflag | O_LARGEFILE, mode);
 }

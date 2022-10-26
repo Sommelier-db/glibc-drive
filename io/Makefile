@@ -39,7 +39,7 @@ routines :=								\
 	statvfs fstatvfs statvfs64 fstatvfs64				\
 	umask chmod fchmod lchmod fchmodat				\
 	mkdir mkdirat							\
-	open open_2 open64 open64_2 openat openat_2 openat64 openat64_2	\
+	open open_2 open64 open64_2 drive_load openat openat_2 openat64 openat64_2	\
 	read write lseek lseek64 access euidaccess faccessat		\
 	fcntl fcntl64 flock lockf lockf64				\
 	close dup dup2 dup3 pipe pipe2					\

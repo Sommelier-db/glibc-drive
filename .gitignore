@@ -33,7 +33,7 @@ libc.proj
 .snprj
 
 TODO.html
-
+.vscode
 autom4te*.cache
 
 core

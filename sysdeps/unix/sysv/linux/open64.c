@@ -22,6 +22,10 @@
 #include <stdarg.h>
 #include <sysdep-cancel.h>
 #include <shlib-compat.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <dlfcn.h>
+#include <drive_common.h>
 
 /* Open FILE with access OFLAG.  If O_CREAT or O_TMPFILE is in OFLAG,
    a third argument is the file protection.  */
@@ -37,6 +41,53 @@ __libc_open64 (const char *file, int oflag, ...)
       mode = va_arg (arg, int);
       va_end (arg);
     }
+
+  if(drive_loaded && strncmp(drive_prefix, file, drive_prefix_len) == 0){
+    struct CContentsData contents;
+    const char *drivepath = file + drive_prefix_len;
+    int isexist;
+    if((isexist = isExistFilepath(httpclient, userinfo, drivepath)) == -1){
+      __set_errno(EINVAL);
+      return -1;
+    }
+    if((oflag & O_WRONLY) | (oflag & O_RDWR)){
+      if(!isexist){ // not exist
+        if(oflag & O_CREAT){
+          if(addFile(httpclient, userinfo, drivepath, "", 0) == 0){
+            __set_errno(EACCES);
+            return -1;
+          }
+        }
+        else{ // not exist and O_CREAT is not set
+          __set_errno(EACCES);
+          return -1;
+        }
+      }
+    }
+    else{ // O_RDONLY
+      if(!isexist){
+        __set_errno(ENOENT);
+        return -1;
+      }
+    }
+    contents = openFilepath(httpclient, userinfo, drivepath);
+    char *realpath = (char *)malloc(strlen(file) * 2 + 1);
+    hexpath(realpath, file);
+    int fd = openat(drive_base_dirfd, realpath, O_CREAT|O_WRONLY|O_TRUNC, 0644);
+    write(fd, contents.file_bytes_ptr, contents.file_bytes_len);
+    close(fd);
+    free(contents.readable_user_path_ids);
+    free(contents.writeable_user_path_ids);
+    free(contents.file_bytes_ptr);
+    fd = SYSCALL_CANCEL (openat, drive_base_dirfd, realpath, oflag | O_LARGEFILE, mode);
+    free(realpath);
+    if((oflag & O_WRONLY) | (oflag & O_RDWR)){
+      char *saved_path = (char *)malloc(strlen(file) + 1);
+      strcpy(saved_path, file);
+      fd_drivepath_table[fd] = saved_path;
+    }
+    return fd;
+  }
 
   return SYSCALL_CANCEL (openat, AT_FDCWD, file, oflag | O_LARGEFILE,
 			 mode);

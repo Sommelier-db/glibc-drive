@@ -19,11 +19,45 @@
 #include <unistd.h>
 #include <sysdep-cancel.h>
 #include <not-cancel.h>
+#include <sys/mman.h>
+#include <stdio.h>
+#include <assert.h>
+#include <drive_common.h>
 
 /* Close the file descriptor FD.  */
 int
 __close (int fd)
 {
+  if(fd_drivepath_table[fd] != NULL){
+    char *temp = fd_drivepath_table[fd];
+    fd_drivepath_table[fd] = NULL;
+    if(__close(fd) == -1){
+      free(temp);
+      return -1;
+    }
+    char *realpath = (char *)malloc(strlen(temp) * 2 + 1);
+    hexpath(realpath, temp);
+    int rfd = openat(drive_base_dirfd, realpath, O_RDONLY);
+    assert(rfd != -1);
+    free(realpath);
+    if(rfd != -1){
+      struct stat statbuf;
+      fstat(rfd, &statbuf);
+      // void *mapaddr = mmap(NULL, statbuf.st_size, PROT_READ|PROT_WRITE, MAP_PRIVATE, fd, 0);
+      char *databuf = (char *)malloc(statbuf.st_size);
+      read(rfd, databuf, statbuf.st_size);
+      if(modifyFile(httpclient, userinfo, temp + drive_prefix_len, databuf, statbuf.st_size) != 1){
+        fputs("failed to modify file", stderr);
+      }
+      // munmap(mapaddr, statbuf.st_size);
+      free(databuf);
+      free(temp);
+      return __close(rfd);
+    }
+    else{
+      return -1;
+    }
+  }
   return SYSCALL_CANCEL (close, fd);
 }
 libc_hidden_def (__close)
