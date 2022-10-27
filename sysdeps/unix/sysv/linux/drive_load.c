@@ -28,16 +28,23 @@ struct CPublicKeys pubkeys;
 size_t hexpath(char *dst, const char *path);
 
 void *crypto_handler;
-int (*addDirectory)(struct CHttpClient, struct CUserInfo, const char *, const char *);
+
+int (*addDirectory)(struct CHttpClient, struct CUserInfo, const char *);
 int (*addFile)(struct CHttpClient, struct CUserInfo, const char *, const char *, size_t);
 int (*addReadPermission)(struct CHttpClient, struct CUserInfo, const char *, uint64_t);
-int (*getChildrenPathes)(struct CHttpClient, struct CUserInfo, const char *, char **);
+
+void (*freeContentsData)(struct CContentsData);
+void (*freePathVec)(struct CPathVec);
+void (*freePublicKeys)(struct CPublicKeys);
+void (*freeUserInfo)(struct CUserInfo);
+
+struct CPathVec (*getChildrenPathes)(struct CHttpClient, struct CUserInfo, const char *);
 char *(*getFilePathWithId)(struct CHttpClient, struct CUserInfo, uint64_t);
 struct CPublicKeys (*getPublicKeys)(struct CHttpClient, uint64_t);
 int (*isExistFilepath)(struct CHttpClient, struct CUserInfo, const char *);
 int (*modifyFile)(struct CHttpClient, struct CUserInfo, const char *, const char *, size_t);
 struct CContentsData (*openFilepath)(struct CHttpClient, struct CUserInfo, const char *);
-struct CUserInfo (*registerUser)(struct CHttpClient);
+struct CUserInfo (*registerUser)(struct CHttpClient, const char *);
 int (*searchDescendantPathes)(struct CHttpClient, struct CUserInfo, const char *, char **);
 
 static void __attribute__((constructor)) load_drive(void);
@@ -93,7 +100,8 @@ static void load_drive(void){
     fputs("failed to get data secret key size\n", stderr);
     return;
   }
-  userinfo.data_sk = (char *)malloc(statbuf.st_size);
+  userinfo.data_sk = (char *)malloc(statbuf.st_size + 1);
+  userinfo.data_sk[statbuf.st_size] = 0;
   read(fd_sk, userinfo.data_sk, statbuf.st_size);
   close(fd_sk);
 
@@ -105,8 +113,9 @@ static void load_drive(void){
     fputs("failed to get keyword secret key size\n", stderr);
     return;
   }
-  userinfo.keyword_sk = (char *)malloc(statbuf.st_size);
+  userinfo.keyword_sk = (char *)malloc(statbuf.st_size + 1);
   read(fd_sk, userinfo.keyword_sk, statbuf.st_size);
+  userinfo.keyword_sk[statbuf.st_size] = 0;
   close(fd_sk);
   if((drive_base_dirfd = open(base_dir, O_RDONLY | O_DIRECTORY)) == -1){
     fputs("failed to access base directory", stderr);
@@ -135,7 +144,11 @@ static void load_drive(void){
   if((crypto_handler = dlopen("libsommelier_drive_client.so", RTLD_LAZY | RTLD_LOCAL)) != NULL){
     if(DLSYM(crypto_handler, addDirectory) &&
       DLSYM(crypto_handler, addFile) &&
-      DLSYM(crypto_handler, addReadPermission) && 
+      DLSYM(crypto_handler, addReadPermission) &&
+      DLSYM(crypto_handler, freeContentsData) &&
+      DLSYM(crypto_handler, freePathVec) &&
+      DLSYM(crypto_handler, freePublicKeys) &&
+      DLSYM(crypto_handler, freeUserInfo) &&
       DLSYM(crypto_handler, getChildrenPathes) &&
       DLSYM(crypto_handler, getFilePathWithId) &&
       DLSYM(crypto_handler, getPublicKeys) &&
@@ -144,10 +157,11 @@ static void load_drive(void){
       DLSYM(crypto_handler, openFilepath) &&
       DLSYM(crypto_handler, registerUser) &&
       DLSYM(crypto_handler, searchDescendantPathes)){
-      drive_loaded = 1;
+      if(isExistFilepath(httpclient, userinfo, "/nondir") != -1)
+        drive_loaded = 1;
     }
   }
-  else{
+  if(drive_loaded != 1){
     fputs("failed to load libsommelier_drive_client\n", stderr);
   }
 

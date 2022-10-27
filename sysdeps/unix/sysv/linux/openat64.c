@@ -39,15 +39,15 @@ __libc_openat64 (int fd, const char *file, int oflag, ...)
       va_end (arg);
     }
 
-  // if(fd_drivepath_table[fd] != NULL && file[0] != '/'){
-  //   char *opath = (char*)malloc(strlen(fd_drivepath_table[fd]) + strlen(file) + 2);
-  //   strcpy(opath, fd_drivepath_table[fd]);
-  //   opath[strlen(fd_drivepath_table[fd])] = '/';
-  //   strcpy(opath + strlen(fd_drivepath_table[fd]) + 1, file);
-  //   int ret = open(opath, oflag, mode);
-  //   free(opath);
-  //   return ret;
-  // }
+  if(0<=fd && fd<256 && fd_drivepath_table[fd] != NULL && file[0] != '/'){
+    char *opath = (char*)malloc(strlen(fd_drivepath_table[fd]) + strlen(file) + 2);
+    strcpy(opath, fd_drivepath_table[fd]);
+    opath[strlen(fd_drivepath_table[fd])] = '/';
+    strcpy(opath + strlen(fd_drivepath_table[fd]) + 1, file);
+    int ret = open(opath, oflag, mode);
+    free(opath);
+    return ret;
+  }
 
   return SYSCALL_CANCEL (openat, fd, file, oflag | O_LARGEFILE, mode);
 }

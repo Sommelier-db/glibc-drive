@@ -6,37 +6,6 @@
 #include <sys/types.h>
 #include <stdint.h>
 
-typedef struct CSharedKeyCT {
-  char *ptr;
-} CSharedKeyCT;
-
-typedef struct CFilePathCT {
-  char *ptr;
-} CFilePathCT;
-
-typedef struct CPermissionCT {
-  struct CSharedKeyCT shared_key_ct;
-  struct CFilePathCT filepath_ct;
-} CPermissionCT;
-
-typedef struct CRecoveredSharedKey {
-  char *shared_key;
-  char *shared_key_hash;
-} CRecoveredSharedKey;
-
-typedef struct CContentsBytes {
-  const uint8_t *ptr;
-  size_t len;
-} CContentsBytes;
-
-typedef struct CFileCT {
-  size_t num_cts;
-  struct CSharedKeyCT *shared_key_cts;
-  struct CFilePathCT *filepath_cts;
-  char *shared_key_hash;
-  char *contents_ct;
-} CFileCT;
-
 typedef struct CHttpClient {
   char *base_url;
   char *region_name;
@@ -63,18 +32,28 @@ typedef struct CContentsData {
   size_t file_bytes_len;
 } CContentsData;
 
+typedef struct CPathVec {
+  char **ptr;
+  size_t len;
+} CPathVec;
 
 extern void *crypto_handler;
-extern int (*addDirectory)(struct CHttpClient, struct CUserInfo, const char *, const char *);
+extern int (*addDirectory)(struct CHttpClient, struct CUserInfo, const char *);
 extern int (*addFile)(struct CHttpClient, struct CUserInfo, const char *, const char *, size_t);
 extern int (*addReadPermission)(struct CHttpClient, struct CUserInfo, const char *, uint64_t);
-extern int (*getChildrenPathes)(struct CHttpClient, struct CUserInfo, const char *, char **);
+
+extern void (*freeContentsData)(struct CContentsData);
+extern void (*freePathVec)(struct CPathVec);
+extern void (*freePublicKeys)(struct CPublicKeys);
+extern void (*freeUserInfo)(struct CUserInfo);
+
+extern struct CPathVec (*getChildrenPathes)(struct CHttpClient, struct CUserInfo, const char *);
 extern char *(*getFilePathWithId)(struct CHttpClient, struct CUserInfo, uint64_t);
 extern struct CPublicKeys (*getPublicKeys)(struct CHttpClient, uint64_t);
 extern int (*isExistFilepath)(struct CHttpClient, struct CUserInfo, const char *);
 extern int (*modifyFile)(struct CHttpClient, struct CUserInfo, const char *, const char *, size_t);
 extern struct CContentsData (*openFilepath)(struct CHttpClient, struct CUserInfo, const char *);
-extern struct CUserInfo (*registerUser)(struct CHttpClient);
+extern struct CUserInfo (*registerUser)(struct CHttpClient, const char *);
 extern int (*searchDescendantPathes)(struct CHttpClient, struct CUserInfo, const char *, char **);
 
 extern char *data_sk;

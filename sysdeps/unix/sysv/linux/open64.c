@@ -71,26 +71,46 @@ __libc_open64 (const char *file, int oflag, ...)
       }
     }
     contents = openFilepath(httpclient, userinfo, drivepath);
+    if(contents.is_file == 0){
+      int dirfd =  open(drive_base_dir, O_RDONLY | O_DIRECTORY);
+      fd_drivepath_table[dirfd] = strdup(file);
+      return dirfd;
+    }
     char *realpath = (char *)malloc(strlen(file) * 2 + 1);
     hexpath(realpath, file);
+
     int fd = openat(drive_base_dirfd, realpath, O_CREAT|O_WRONLY|O_TRUNC, 0644);
     write(fd, contents.file_bytes_ptr, contents.file_bytes_len);
     close(fd);
-    free(contents.readable_user_path_ids);
-    free(contents.writeable_user_path_ids);
-    free(contents.file_bytes_ptr);
+    freeContentsData(contents);
+
     fd = SYSCALL_CANCEL (openat, drive_base_dirfd, realpath, oflag | O_LARGEFILE, mode);
     free(realpath);
+
     if((oflag & O_WRONLY) | (oflag & O_RDWR)){
-      char *saved_path = (char *)malloc(strlen(file) + 1);
-      strcpy(saved_path, file);
-      fd_drivepath_table[fd] = saved_path;
+      fd_drivepath_table[fd] = strdup(file);
     }
     return fd;
   }
 
   return SYSCALL_CANCEL (openat, AT_FDCWD, file, oflag | O_LARGEFILE,
 			 mode);
+}
+
+int
+mkdir (const char *path, mode_t mode)
+{
+  if(drive_loaded && strncmp(drive_prefix, path, drive_prefix_len) == 0){
+    const char *drivepath = path + drive_prefix_len;
+    if(addDirectory(httpclient, userinfo, drivepath) == 1){
+      return 0;
+    }
+    else{
+      __set_errno(EINVAL);
+      return -1;
+    }
+  }
+  return INLINE_SYSCALL (mkdirat, 3, AT_FDCWD, path, mode);
 }
 
 strong_alias (__libc_open64, __open64)

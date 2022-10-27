@@ -39,12 +39,12 @@ routines :=								\
 	statvfs fstatvfs statvfs64 fstatvfs64				\
 	umask chmod fchmod lchmod fchmodat				\
 	mkdir mkdirat							\
-	open open_2 open64 open64_2 drive_load openat openat_2 openat64 openat64_2	\
+	open open_2 open64 open64_2 openat openat_2 openat64 openat64_2	\
 	read write lseek lseek64 access euidaccess faccessat		\
 	fcntl fcntl64 flock lockf lockf64				\
 	close dup dup2 dup3 pipe pipe2					\
 	creat creat64							\
-	chdir fchdir							\
+	chdir fchdir drive_load					\
 	getcwd getwd getdirname						\
 	chown fchown lchown fchownat					\
 	ttyname ttyname_r isatty					\
@@ -59,7 +59,7 @@ routines :=								\
 	ftw64-time64							\
 	closefrom close_range
 
-others		:= pwd
+others		:= pwd 
 test-srcs	:= ftwtest ftwtest-time64
 tests		:= test-utime test-stat test-stat2 test-lfs tst-getcwd \
 		   tst-fcntl bug-ftw1 bug-ftw2 bug-ftw3 bug-ftw4 tst-statvfs \

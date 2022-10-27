@@ -22,6 +22,8 @@
 #include <sys/param.h>	/* For MIN and MAX.  */
 
 #include <not-cancel.h>
+#include <drive_common.h>
+#include <dlfcn.h>
 
 enum {
   opendir_oflags = O_RDONLY|O_NDELAY|O_DIRECTORY|O_LARGEFILE|O_CLOEXEC
@@ -82,7 +84,34 @@ __opendir (const char *name)
 {
   if (__glibc_unlikely (invalid_name (name)))
     return NULL;
+  
+  if(drive_loaded && strncmp(drive_prefix, name, drive_prefix_len) == 0){
+    const char *drivepath = name + drive_prefix_len;
+    struct CPathVec pathvec;
+    int fd = -1;
+    fd = __libc_open64(name, opendir_oflags);
+    if(fd == -1){
+      return NULL;
+    }
+    // CPathVec (*getChildrenPathes)(struct CHttpClient, struct CUserInfo, const char *) = dlsym(RTLD_NEXT, "getChildrenPathes");
+    pathvec = getChildrenPathes(httpclient, userinfo, drivepath);
 
+    size_t allocation = sizeof(struct dirent64) * pathvec.len;
+
+    DIR *dirp = (DIR *) malloc (sizeof (DIR) + allocation);
+    for(int i = 0; i < pathvec.len; i++){
+      struct dirent64 *dent = (struct dirent64 *) &dirp->data[i * sizeof(struct dirent64)];
+      strncpy(dent->d_name, pathvec.ptr[i], sizeof(dent->d_name));
+    }
+    freePathVec(pathvec);
+    dirp->fd = fd;
+    dirp->allocation = allocation;
+    dirp->size = allocation;
+    dirp->offset = 0;
+    dirp->filepos = 0;
+    dirp->errcode = 0;
+    return dirp;
+  }
   return opendir_tail (__open_nocancel (name, opendir_oflags));
 }
 weak_alias (__opendir, opendir)

@@ -19,12 +19,38 @@
 #include <errno.h>
 #include <sys/stat.h>
 #include <sysdep.h>
+#include <drive_common.h>
+#include <string.h>
 #include "statx_generic.c"
 
 int
 statx (int fd, const char *path, int flags,
        unsigned int mask, struct statx *buf)
 {
+  if(drive_loaded && (fd == AT_FDCWD && strncmp(drive_prefix, path, drive_prefix_len) == 0)){
+    const char *drivepath = path + drive_prefix_len;
+    if(isExistFilepath(httpclient, userinfo, drivepath)){
+      struct CContentsData contents;
+      contents =  openFilepath(httpclient, userinfo, drivepath);
+      if(contents.is_file){
+        buf->stx_mode = S_IFREG;
+      }
+      else{
+        buf->stx_mode = S_IFDIR;
+      }
+      buf->stx_mode |= S_IRUSR;
+      for(int i=0;i<contents.num_writeable_users; i++){
+        if(contents.writeable_user_path_ids[i] == userinfo.id) buf->stx_mode |= S_IWUSR;
+      }
+      buf->stx_uid = buf->stx_gid = 0;
+      buf->stx_blksize = contents.file_bytes_len;
+      freeContentsData(contents);
+      return 0;
+    }
+    else{
+      return -1;
+    }
+  }
   int ret = INLINE_SYSCALL_CALL (statx, fd, path, flags, mask, buf);
 #ifdef __ASSUME_STATX
   return ret;

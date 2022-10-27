@@ -23,6 +23,8 @@
 #define readdir   __no_readdir_decl
 #define __readdir __no___readdir_decl
 #include <dirent.h>
+#include <dlfcn.h>
+#include <drive_common.h>
 #undef __readdir
 #undef readdir
 
@@ -33,9 +35,42 @@ __readdir64 (DIR *dirp)
   struct dirent64 *dp;
   int saved_errno = errno;
 
-#if IS_IN (libc)
+  if(fd_drivepath_table[dirp->fd] != NULL){
+
+    if(dirp->offset >= dirp->size){
+      return NULL;
+    }
+    dp = (struct dirent64 *) &dirp->data[dirp->offset];
+
+    // struct CContentsData (*openFilepath)(struct CHttpClient, struct CUserInfo, const char *) = dlsym(RTLD_NEXT, "openFilepath");
+    struct CContentsData contents = openFilepath(httpclient, userinfo, dp->d_name);
+
+    if(contents.is_file == 0){
+      dp->d_type = DT_DIR;
+    }
+    else{
+      dp->d_type = DT_REG;
+    }
+    // void (*freeContentsData)(struct CContentsData) = dlsym(RTLD_NEXT, "freeContentsData");
+
+    freeContentsData(contents);
+
+    dp->d_reclen = sizeof(struct dirent64);
+
+    dp->d_off = dirp->offset;
+
+    dp->d_ino = dp->d_off;
+
+    dirp->offset += dp->d_reclen;
+
+    dirp->filepos = dp->d_off;
+
+    return dp;
+  }
+
+  #if IS_IN (libc)
   __libc_lock_lock (dirp->lock);
-#endif
+  #endif
 
   do
     {
@@ -68,7 +103,6 @@ __readdir64 (DIR *dirp)
 	  /* Reset the offset into the buffer.  */
 	  dirp->offset = 0;
 	}
-
       dp = (struct dirent64 *) &dirp->data[dirp->offset];
 
       reclen = dp->d_reclen;

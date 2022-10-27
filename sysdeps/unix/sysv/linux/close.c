@@ -29,6 +29,7 @@ int
 __close (int fd)
 {
   if(fd_drivepath_table[fd] != NULL){
+
     char *temp = fd_drivepath_table[fd];
     fd_drivepath_table[fd] = NULL;
     if(__close(fd) == -1){
@@ -41,6 +42,7 @@ __close (int fd)
     assert(rfd != -1);
     free(realpath);
     if(rfd != -1){
+      
       struct stat statbuf;
       fstat(rfd, &statbuf);
       // void *mapaddr = mmap(NULL, statbuf.st_size, PROT_READ|PROT_WRITE, MAP_PRIVATE, fd, 0);
