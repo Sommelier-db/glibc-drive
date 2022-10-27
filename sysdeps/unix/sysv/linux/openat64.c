@@ -38,6 +38,9 @@ __libc_openat64 (int fd, const char *file, int oflag, ...)
       mode = va_arg (arg, mode_t);
       va_end (arg);
     }
+  if(fd == AT_FDCWD){
+    return __libc_open64(file, oflag, mode);
+  }
 
   if(0<=fd && fd<256 && fd_drivepath_table[fd] != NULL && file[0] != '/'){
     char *opath = (char*)malloc(strlen(fd_drivepath_table[fd]) + strlen(file) + 2);

@@ -20,6 +20,7 @@
 #include <sys/stat.h>
 #include <sysdep.h>
 #include <drive_common.h>
+#include <unistd.h>
 #include <string.h>
 #include "statx_generic.c"
 
@@ -42,7 +43,7 @@ statx (int fd, const char *path, int flags,
       for(int i=0;i<contents.num_writeable_users; i++){
         if(contents.writeable_user_path_ids[i] == userinfo.id) buf->stx_mode |= S_IWUSR;
       }
-      buf->stx_uid = buf->stx_gid = 0;
+      buf->stx_uid = buf->stx_gid = getuid();
       buf->stx_blksize = contents.file_bytes_len;
       freeContentsData(contents);
       return 0;
