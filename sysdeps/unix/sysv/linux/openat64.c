@@ -21,6 +21,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <sysdep-cancel.h>
 #include <drive_common.h>
 
@@ -38,19 +39,89 @@ __libc_openat64 (int fd, const char *file, int oflag, ...)
       mode = va_arg (arg, mode_t);
       va_end (arg);
     }
-  if(fd == AT_FDCWD){
-    return __libc_open64(file, oflag, mode);
-  }
 
-  if(0<=fd && fd<256 && fd_drivepath_table[fd] != NULL && file[0] != '/'){
-    char *opath = (char*)malloc(strlen(fd_drivepath_table[fd]) + strlen(file) + 2);
-    strcpy(opath, fd_drivepath_table[fd]);
-    opath[strlen(fd_drivepath_table[fd])] = '/';
-    strcpy(opath + strlen(fd_drivepath_table[fd]) + 1, file);
-    int ret = open(opath, oflag, mode);
-    free(opath);
-    return ret;
+#if DRIVE_EXT
+  char *drivepath;
+
+  if((drivepath = fd_to_drivepath(fd, file)) != NULL){
+    struct CContentsData contents;
+    int isexist;
+    if((isexist = isExistFilepath(httpclient, userinfo, drivepath)) == -1){
+      __set_errno(EINVAL);
+      goto handle_error;
+    }
+    if(drive_trace) fprintf(stderr, "openat: %s %sexists\n", drivepath, isexist ? "":"does not ");
+    if((oflag & O_WRONLY) | (oflag & O_RDWR)){
+      if(!isexist){
+        // not exist
+        if(oflag & O_CREAT){
+          if(addFile(httpclient, userinfo, drivepath, "", 0) == 0){
+            __set_errno(EACCES);
+            goto handle_error;
+          }
+          if(drive_trace)
+            fprintf(stderr, "openat: %s is created\n", drivepath);
+        }
+        else{
+          // not exist and O_CREAT is not set
+          __set_errno(EACCES);
+          goto handle_error;
+        }
+      }else{
+        // exist
+        if(oflag & O_CREAT && oflag & O_EXCL){
+          __set_errno(EEXIST);
+          goto handle_error;
+        }
+      }
+    }
+    else{
+      // O_RDONLY
+      if(!isexist){
+        __set_errno(ENOENT);
+        goto handle_error;
+      }
+    }
+    if(isexist && ~oflag & O_TRUNC){
+      // if already exists
+      contents = openFilepath(httpclient, userinfo, drivepath);
+      if(contents.is_file == 0){
+        int dirfd =  SYSCALL_CANCEL(open, drive_base_dir, O_RDONLY | O_DIRECTORY, mode);
+        fd_drivepath_table[dirfd] = strdup(drivepath);
+        return dirfd;
+      }
+      else if(oflag & O_DIRECTORY){
+        freeContentsData(contents);
+        __set_errno(ENOTDIR);
+        goto handle_error;
+      }
+      if(drive_trace) fprintf(stderr, "openat: get contents of %s\n", drivepath);
+    }
+    char *realpath = (char *)malloc(strlen(drivepath) * 2 + 1);
+    hexpath(realpath, drivepath);
+    int fd;
+
+    if(isexist && ~oflag & O_TRUNC){
+      fd = INLINE_SYSCALL_CALL(openat, drive_base_dirfd, realpath, O_CREAT|O_WRONLY|O_TRUNC, 0644);
+      write(fd, contents.file_bytes_ptr, contents.file_bytes_len);
+      __close(fd);
+      freeContentsData(contents);
+    }
+
+    fd = INLINE_SYSCALL_CALL (openat, drive_base_dirfd, realpath, oflag | O_LARGEFILE, mode);
+    free(realpath);
+
+    // if((oflag & O_WRONLY) | (oflag & O_RDWR)){
+      fd_drivepath_table[fd] = strdup(drivepath);
+    // }
+    free(drivepath);
+    return fd;
+
+    handle_error:
+    free(drivepath);
+    return -1;
   }
+#endif
 
   return SYSCALL_CANCEL (openat, fd, file, oflag | O_LARGEFILE, mode);
 }

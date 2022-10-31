@@ -85,23 +85,29 @@ __opendir (const char *name)
   if (__glibc_unlikely (invalid_name (name)))
     return NULL;
   
+#if DRIVE_EXT
   if(drive_loaded && strncmp(drive_prefix, name, drive_prefix_len) == 0){
     const char *drivepath = name + drive_prefix_len;
     struct CPathVec pathvec;
     int fd = -1;
-    fd = __libc_open64(name, opendir_oflags);
+    fd = __openat(drive_base_dirfd, drivepath, opendir_oflags);
     if(fd == -1){
       return NULL;
     }
-    // CPathVec (*getChildrenPathes)(struct CHttpClient, struct CUserInfo, const char *) = dlsym(RTLD_NEXT, "getChildrenPathes");
     pathvec = getChildrenPathes(httpclient, userinfo, drivepath);
-
+    if(drive_trace) fprintf(stderr, "opendir: get children entries of %s\n", drivepath);
     size_t allocation = sizeof(struct dirent64) * pathvec.len;
 
     DIR *dirp = (DIR *) malloc (sizeof (DIR) + allocation);
     for(int i = 0; i < pathvec.len; i++){
       struct dirent64 *dent = (struct dirent64 *) &dirp->data[i * sizeof(struct dirent64)];
-      strncpy(dent->d_name, pathvec.ptr[i], sizeof(dent->d_name));
+      if(strncmp(drivepath, pathvec.ptr[i], strlen(drivepath)) != 0 || pathvec.ptr[i][strlen(drivepath)] != '/'){
+        free(dirp);
+        freePathVec(pathvec);
+        if(drive_trace) fprintf(stderr, "opendir: prefix is not match. %s and %s", drivepath, pathvec.ptr[i]);
+        return NULL;
+      }
+      strncpy(dent->d_name, pathvec.ptr[i] + strlen(drivepath) + 1, sizeof(dent->d_name));
     }
     freePathVec(pathvec);
     dirp->fd = fd;
@@ -112,6 +118,8 @@ __opendir (const char *name)
     dirp->errcode = 0;
     return dirp;
   }
+#endif
+
   return opendir_tail (__open_nocancel (name, opendir_oflags));
 }
 weak_alias (__opendir, opendir)

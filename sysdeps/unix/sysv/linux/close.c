@@ -28,38 +28,52 @@
 int
 __close (int fd)
 {
-  if(fd_drivepath_table[fd] != NULL){
 
-    char *temp = fd_drivepath_table[fd];
+#if DRIVE_EXT
+  if(fd_drivepath_table[fd] != NULL){
+    struct stat statbuf;
+    char *drivepath = fd_drivepath_table[fd];
     fd_drivepath_table[fd] = NULL;
+    fstat(fd, &statbuf);
+    if(! S_ISREG(statbuf.st_mode) || ! (fcntl(fd, F_GETFL) & (O_WRONLY|O_RDWR))){
+      free(drivepath);
+      return SYSCALL_CANCEL (close, fd);
+    }
     if(__close(fd) == -1){
-      free(temp);
+      free(drivepath);
       return -1;
     }
-    char *realpath = (char *)malloc(strlen(temp) * 2 + 1);
-    hexpath(realpath, temp);
-    int rfd = openat(drive_base_dirfd, realpath, O_RDONLY);
-    assert(rfd != -1);
+    char *realpath = (char *)malloc(strlen(drivepath) * 2 + 1);
+    hexpath(realpath, drivepath);
+    int rfd = INLINE_SYSCALL_CALL (openat, drive_base_dirfd, realpath, O_RDONLY);
+    if(drive_trace && rfd == -1){
+      fprintf(stderr, "close: failed to reopen %s:(%s)\n", realpath, drivepath);
+      return -1;
+    }
     free(realpath);
     if(rfd != -1){
-      
-      struct stat statbuf;
+
       fstat(rfd, &statbuf);
+
       // void *mapaddr = mmap(NULL, statbuf.st_size, PROT_READ|PROT_WRITE, MAP_PRIVATE, fd, 0);
       char *databuf = (char *)malloc(statbuf.st_size);
       read(rfd, databuf, statbuf.st_size);
-      if(modifyFile(httpclient, userinfo, temp + drive_prefix_len, databuf, statbuf.st_size) != 1){
-        fputs("failed to modify file", stderr);
+      if(modifyFile(httpclient, userinfo, drivepath, databuf, statbuf.st_size) != 1){
+        if(drive_trace) fprintf(stderr, "close: failed to modify %s\n", drivepath);
+        return SYSCALL_CANCEL (close, rfd);
       }
+      if(drive_trace) fprintf(stderr, "close: modify contents of %s size: %ld\n", drivepath, statbuf.st_size);
       // munmap(mapaddr, statbuf.st_size);
       free(databuf);
-      free(temp);
-      return __close(rfd);
+      free(drivepath);
+      return SYSCALL_CANCEL (close, rfd);
     }
     else{
       return -1;
     }
   }
+#endif
+
   return SYSCALL_CANCEL (close, fd);
 }
 libc_hidden_def (__close)

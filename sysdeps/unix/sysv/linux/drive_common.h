@@ -3,6 +3,8 @@
 
 #define _DRIVE_COMMON_H
 
+#define DRIVE_EXT 1
+
 #include <sys/types.h>
 #include <stdint.h>
 
@@ -67,11 +69,13 @@ extern char *drive_prefix;
 extern size_t drive_prefix_len;
 extern char *fd_drivepath_table[256];
 extern int drive_loaded;
+extern int drive_trace;
 
 extern struct CHttpClient httpclient;
 extern struct CUserInfo userinfo;
 extern struct CPublicKeys pubkeys;
 
 extern size_t hexpath(char *dst, const char *path);
+extern char*fd_to_drivepath(int, const char *);
 
 #endif

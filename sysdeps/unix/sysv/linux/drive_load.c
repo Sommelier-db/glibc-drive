@@ -20,6 +20,7 @@ char *drive_prefix;
 size_t drive_prefix_len;
 char *fd_drivepath_table[256];
 int drive_loaded;
+int drive_trace;
 
 struct CHttpClient httpclient;
 struct CUserInfo userinfo;
@@ -77,6 +78,9 @@ static void load_drive(void){
     fputs("SOMMELIER_DRIVE_BASE_DIR is not set\n", stderr);
     return;
   }
+  if((getenv("SOMMELIER_DRIVE_TRACE")) != NULL){
+    drive_trace = 1;
+  }
   if((userinfo.id = atol(user_id)) == 0){
     fputs("SOMMELIER_DRIVE_USER_ID is not valid number\n", stderr);
     return;
@@ -92,7 +96,7 @@ static void load_drive(void){
   strcpy(httpclient.region_name, region_name);
 
   int fd_sk;
-  if((fd_sk = __libc_open64(dataskfile, O_RDONLY)) == -1){
+  if((fd_sk = __open64(dataskfile, O_RDONLY)) == -1){
     fputs("failed to open data secret key file\n", stderr);
     return;
   }
@@ -105,7 +109,7 @@ static void load_drive(void){
   read(fd_sk, userinfo.data_sk, statbuf.st_size);
   close(fd_sk);
 
-  if((fd_sk = __libc_open64(keywordskfile, O_RDONLY)) == -1){
+  if((fd_sk = __open64(keywordskfile, O_RDONLY)) == -1){
     fputs("failed to open keyword secret key file\n", stderr);
     return;
   }
@@ -117,29 +121,17 @@ static void load_drive(void){
   read(fd_sk, userinfo.keyword_sk, statbuf.st_size);
   userinfo.keyword_sk[statbuf.st_size] = 0;
   close(fd_sk);
-  if((drive_base_dirfd = open(base_dir, O_RDONLY | O_DIRECTORY)) == -1){
-    fputs("failed to access base directory", stderr);
+
+  if(access(base_dir, R_OK|W_OK) != 0){
+    fputs("cannot access drive base directory\n", stderr);
     return;
   }
-  if(fstat(drive_base_dirfd, &statbuf) == -1){
-    fputs("failed to get state of base directory", stderr);
+  if((drive_base_dirfd = __open64(base_dir, O_RDONLY | O_DIRECTORY)) == -1){
+    fputs("failed to access drive base directory\n", stderr);
     return;
   }
-  if(S_ISDIR(statbuf.st_mode) &&
-        ((statbuf.st_uid == getuid() && statbuf.st_mode | S_IRWXU ) ||
-        (statbuf.st_gid == getgid() && statbuf.st_mode | S_IRWXG ) ||
-        statbuf.st_mode | S_IRWXO )){
-    size_t base_dir_sz = strlen(base_dir);
-    drive_base_dir = malloc(base_dir_sz + 2);
-    strncpy(drive_base_dir, base_dir, base_dir_sz + 2);
-    if(drive_base_dir[base_dir_sz - 1] != '/'){
-      drive_base_dir[base_dir_sz] = '/';
-    }
-  }
-  else{
-    fputs("invalid permission for drive base directory", stderr);
-    return;
-  }
+  drive_base_dir = strdup(base_dir);
+  fd_drivepath_table[drive_base_dirfd] = strdup("");
   
   if((crypto_handler = dlopen("libsommelier_drive_client.so", RTLD_LAZY | RTLD_LOCAL)) != NULL){
     if(DLSYM(crypto_handler, addDirectory) &&
@@ -157,7 +149,6 @@ static void load_drive(void){
       DLSYM(crypto_handler, openFilepath) &&
       DLSYM(crypto_handler, registerUser) &&
       DLSYM(crypto_handler, searchDescendantPathes)){
-      if(isExistFilepath(httpclient, userinfo, "/nondir") != -1)
         drive_loaded = 1;
     }
   }
@@ -173,6 +164,7 @@ static void finalize_drive(void){
   if(userinfo.data_sk) free(userinfo.data_sk);
   if(userinfo.keyword_sk) free(userinfo.keyword_sk);
   if(drive_base_dirfd > 0) close(drive_base_dirfd);
+  if(drive_base_dir) free(drive_base_dir);
   if(crypto_handler) dlclose(crypto_handler);
   // for(int i=0; i<sizeof(fd_drivepath_table); i++){
   //   if(fd_drivepath_table[i] != NULL){
@@ -190,4 +182,32 @@ size_t hexpath(char *dst, const char *path){
   }
   dst[i*2] = 0;
   return i*2;
+}
+
+
+char *fd_to_drivepath(int dirfd, const char *name){
+  char *drivepath = NULL;
+  if(dirfd == AT_FDCWD && drive_loaded && strncmp(drive_prefix, name, drive_prefix_len) == 0){
+    // fd_to_drivepath(AT_FDCWD, "region-name:/A/B") -> /A/B
+    drivepath = strdup(name + drive_prefix_len);
+  }
+
+  else if(0<=dirfd && dirfd<sizeof(fd_drivepath_table)/sizeof(fd_drivepath_table[0])
+  && fd_drivepath_table[dirfd] != NULL){
+    if(*name == '/'){
+      // fd_to_drivepath(base_dir_fd, "/A/B") -> /A/B
+      drivepath = strdup(name);
+    }
+    else{
+      // fd_to_drivepath(base_dir_fd, "A/B") -> <base>/A/B
+      size_t base_len = strlen(fd_drivepath_table[dirfd]);
+      drivepath = (char*)malloc(base_len + strlen(name) + 2);
+      strcpy(drivepath, fd_drivepath_table[dirfd]);
+      if(*name != 0){
+        drivepath[base_len] = '/';
+        strcpy(drivepath + base_len + 1, name);
+      }
+    }
+  }
+  return drivepath;
 }

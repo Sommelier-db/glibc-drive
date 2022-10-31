@@ -22,7 +22,6 @@
 #include <unistd.h>
 #include <dirstream.h>
 #include <not-cancel.h>
-#include <drive_common.h>
 
 
 /* Close the directory stream DIRP.
@@ -50,11 +49,6 @@ __closedir (DIR *dirp)
 
   free ((void *) dirp);
 
-
-  if(fd_drivepath_table[fd] != NULL){
-    free(fd_drivepath_table[fd]);
-    fd_drivepath_table[fd] = NULL;
-  }
   return __close_nocancel (fd);
 }
 weak_alias (__closedir, closedir)

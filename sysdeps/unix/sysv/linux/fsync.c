@@ -30,6 +30,8 @@
 int
 fsync (int fd)
 {
+
+#if DRIVE_EXT
   if(fd_drivepath_table[fd] != NULL){
     char *temp = fd_drivepath_table[fd];
     char *realpath = (char *)malloc(strlen(temp) * 2 + 1);
@@ -47,6 +49,8 @@ fsync (int fd)
     // munmap(mapaddr, statbuf.st_size);
     free(databuf);
   }
+#endif
+
   return SYSCALL_CANCEL (fsync, fd);
 
 }

@@ -24,7 +24,6 @@
 #include <shlib-compat.h>
 #include <stdio.h>
 #include <unistd.h>
-#include <dlfcn.h>
 #include <drive_common.h>
 
 /* Open FILE with access OFLAG.  If O_CREAT or O_TMPFILE is in OFLAG,
@@ -42,76 +41,32 @@ __libc_open64 (const char *file, int oflag, ...)
       va_end (arg);
     }
 
+#if DRIVE_EXT
   if(drive_loaded && strncmp(drive_prefix, file, drive_prefix_len) == 0){
-    struct CContentsData contents;
     const char *drivepath = file + drive_prefix_len;
-    int isexist;
-    if((isexist = isExistFilepath(httpclient, userinfo, drivepath)) == -1){
-      __set_errno(EINVAL);
-      return -1;
-    }
-    if((oflag & O_WRONLY) | (oflag & O_RDWR)){
-      if(!isexist){ // not exist
-        if(oflag & O_CREAT){
-          if(addFile(httpclient, userinfo, drivepath, "", 0) == 0){
-            __set_errno(EACCES);
-            return -1;
-          }
-        }
-        else{ // not exist and O_CREAT is not set
-          __set_errno(EACCES);
-          return -1;
-        }
-      }
-    }
-    else{ // O_RDONLY
-      if(!isexist){
-        __set_errno(ENOENT);
-        return -1;
-      }
-    }
-    contents = openFilepath(httpclient, userinfo, drivepath);
-    if(contents.is_file == 0){
-      int dirfd =  open(drive_base_dir, O_RDONLY | O_DIRECTORY);
-      fd_drivepath_table[dirfd] = strdup(file);
-      return dirfd;
-    }
-    char *realpath = (char *)malloc(strlen(file) * 2 + 1);
-    hexpath(realpath, file);
-
-    int fd = openat(drive_base_dirfd, realpath, O_CREAT|O_WRONLY|O_TRUNC, 0644);
-    write(fd, contents.file_bytes_ptr, contents.file_bytes_len);
-    close(fd);
-    freeContentsData(contents);
-
-    fd = SYSCALL_CANCEL (openat, drive_base_dirfd, realpath, oflag | O_LARGEFILE, mode);
-    free(realpath);
-
-    if((oflag & O_WRONLY) | (oflag & O_RDWR)){
-      fd_drivepath_table[fd] = strdup(file);
-    }
-    return fd;
+    return __openat64(drive_base_dirfd, drivepath, oflag, mode);
   }
+#endif
 
   return SYSCALL_CANCEL (openat, AT_FDCWD, file, oflag | O_LARGEFILE,
 			 mode);
 }
 
-int
-mkdir (const char *path, mode_t mode)
-{
-  if(drive_loaded && strncmp(drive_prefix, path, drive_prefix_len) == 0){
-    const char *drivepath = path + drive_prefix_len;
-    if(addDirectory(httpclient, userinfo, drivepath) == 1){
-      return 0;
-    }
-    else{
-      __set_errno(EINVAL);
-      return -1;
-    }
-  }
-  return INLINE_SYSCALL (mkdirat, 3, AT_FDCWD, path, mode);
-}
+// int
+// mkdir (const char *path, mode_t mode)
+// {
+//   if(drive_loaded && strncmp(drive_prefix, path, drive_prefix_len) == 0){
+//     const char *drivepath = path + drive_prefix_len;
+//     if(addDirectory(httpclient, userinfo, drivepath) == 1){
+//       return 0;
+//     }
+//     else{
+//       __set_errno(EINVAL);
+//       return -1;
+//     }
+//   }
+//   return INLINE_SYSCALL (mkdirat, 3, AT_FDCWD, path, mode);
+// }
 
 strong_alias (__libc_open64, __open64)
 libc_hidden_weak (__open64)

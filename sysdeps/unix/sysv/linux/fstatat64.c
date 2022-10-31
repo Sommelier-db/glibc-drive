@@ -27,6 +27,10 @@
 #include <kstat_cp.h>
 #include <stat_t64_cp.h>
 #include <sys/sysmacros.h>
+#include <string.h>
+#include <unistd.h>
+#include <stdio.h>
+#include <drive_common.h>
 
 #if __TIMESIZE == 64 \
      && (__WORDSIZE == 32 \
@@ -95,6 +99,40 @@ fstatat64_time64_stat (int fd, const char *file, struct __stat64_t64 *buf,
 # ifdef __NR_newfstatat
   /* 64-bit kABI, e.g. aarch64, ia64, powerpc64*, s390x, riscv64, and
      x86_64.  */
+
+#if DRIVE_EXT
+  char *drivepath;
+  if((drivepath = fd_to_drivepath(fd, file)) != NULL){
+    struct CContentsData contents;
+    contents =  openFilepath(httpclient, userinfo, drivepath);
+    if(contents.is_file == -1){
+      if(drive_trace) fprintf(stderr, "fstatat: filed to get stat of %s\n", drivepath);
+      freeContentsData(contents);
+      free(drivepath);
+      return -1;
+    }
+    if(drive_trace) fprintf(stderr, "fstatat: get stat of %s\n", drivepath);
+    memset(buf, 0, sizeof(struct stat));
+    if(contents.is_file){
+      buf->st_mode = S_IFREG;
+    }
+    else{
+      buf->st_mode = S_IFDIR;
+    }
+    buf->st_mode |= S_IRUSR;
+    buf->st_mode |= S_IWUSR;
+    // for(int i=0;i<contents.num_writeable_users; i++){
+    //   if(contents.writeable_user_path_ids[i] == userinfo.id + 1) buf->st_mode |= S_IWUSR;
+    // }
+    buf->st_uid = getuid();
+    buf->st_gid = getgid();
+    buf->st_size = contents.file_bytes_len;
+    freeContentsData(contents);
+    free(drivepath);
+    return 0;
+  }
+#endif
+
   r = INTERNAL_SYSCALL_CALL (newfstatat, fd, file, buf, flag);
 # elif defined __NR_fstatat64
 #  if STAT64_IS_KERNEL_STAT64

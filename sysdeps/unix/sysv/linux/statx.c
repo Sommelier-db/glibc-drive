@@ -22,36 +22,46 @@
 #include <drive_common.h>
 #include <unistd.h>
 #include <string.h>
+#include <stdio.h>
 #include "statx_generic.c"
 
 int
 statx (int fd, const char *path, int flags,
        unsigned int mask, struct statx *buf)
 {
-  if(drive_loaded && (fd == AT_FDCWD && strncmp(drive_prefix, path, drive_prefix_len) == 0)){
-    const char *drivepath = path + drive_prefix_len;
-    if(isExistFilepath(httpclient, userinfo, drivepath)){
-      struct CContentsData contents;
-      contents =  openFilepath(httpclient, userinfo, drivepath);
-      if(contents.is_file){
-        buf->stx_mode = S_IFREG;
-      }
-      else{
-        buf->stx_mode = S_IFDIR;
-      }
-      buf->stx_mode |= S_IRUSR;
-      for(int i=0;i<contents.num_writeable_users; i++){
-        if(contents.writeable_user_path_ids[i] == userinfo.id) buf->stx_mode |= S_IWUSR;
-      }
-      buf->stx_uid = buf->stx_gid = getuid();
-      buf->stx_blksize = contents.file_bytes_len;
-      freeContentsData(contents);
-      return 0;
-    }
-    else{
-      return -1;
-    }
+
+#if DRIVE_EXT
+  char *drivepath;
+  if((drivepath = fd_to_drivepath(fd, path)) != NULL){
+    free(drivepath);
+    return statx_generic(fd, path, flags, mask,buf);
+    // struct CContentsData contents;
+    // contents =  openFilepath(httpclient, userinfo, drivepath);
+    // if(contents.is_file == -1){
+    //   if(drive_trace) fprintf(stderr, "statx: filed to get stat of %s\n", drivepath);
+    //   freeContentsData(contents);
+    //   free(drivepath);
+    //   return -1;
+    // }
+    // if(drive_trace) fprintf(stderr, "statx: get stat of %s\n", drivepath);
+    // memset(buf, 0, sizeof(struct stat));
+    // if(contents.is_file){
+    //   buf->stx_mode = S_IFREG;
+    // }
+    // else{
+    //   buf->stx_mode = S_IFDIR;
+    // }
+    // buf->stx_mode |= S_IRUSR;
+    // buf->stx_mode |= S_IWUSR;
+    // buf->stx_uid =  getuid();
+    // buf->stx_gid = getgid();
+    // buf->stx_size = contents.file_bytes_len;
+    // freeContentsData(contents);
+    // free(drivepath);
+    // return 0;
   }
+#endif
+
   int ret = INLINE_SYSCALL_CALL (statx, fd, path, flags, mask, buf);
 #ifdef __ASSUME_STATX
   return ret;

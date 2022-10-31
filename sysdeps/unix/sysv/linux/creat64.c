@@ -19,12 +19,13 @@
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sysdep-cancel.h>
+#include <drive_common.h>
 
 /* Create FILE with protections MODE.  */
 int
 __creat64 (const char *file, mode_t mode)
 {
-#if defined __OFF_T_MATCHES_OFF64_T && defined __NR_creat
+#if defined __OFF_T_MATCHES_OFF64_T && defined __NR_creat && ! DRIVE_EXT
   return SYSCALL_CANCEL (creat, file, mode);
 #else
   /* We need to pass O_LARGEFILE.  */
