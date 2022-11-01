@@ -54,35 +54,36 @@ static void __attribute__((destructor)) finalize_drive(void);
 static void load_drive(void){
   struct stat statbuf;
   char *user_id, *dataskfile, *keywordskfile, *base_url, *region_name, *base_dir;
-  if((user_id = getenv("SOMMELIER_DRIVE_USER_ID")) == NULL){
-    fputs("SOMMELIER_DRIVE_USER_ID is not set\n", stderr);
-    return;
-  }
-  if((dataskfile = getenv("SOMMELIER_DRIVE_DATA_SK")) == NULL){
-    fputs("SOMMELIER_DRIVE_DATA_SK is not set\n", stderr);
-    return;
-  }
-  if((keywordskfile = getenv("SOMMELIER_DRIVE_KEYWORD_SK")) == NULL){
-    fputs("SOMMELIER_DRIVE_KEYWORD_SK is not set\n", stderr);
-    return;
-  }
-  if((base_url = getenv("SOMMELIER_DRIVE_BASE_URL")) == NULL){
-    fputs("SOMMELIER_DRIVE_BASE_URL is not set\n", stderr);
-    return;
-  }
-  if((region_name = getenv("SOMMELIER_DRIVE_REGION_NAME")) == NULL){
-    fputs("SOMMELIER_DRIVE_REGION_NAME is not set\n", stderr);
-    return;
-  }
-  if((base_dir = getenv("SOMMELIER_DRIVE_BASE_DIR")) == NULL){
-    fputs("SOMMELIER_DRIVE_BASE_DIR is not set\n", stderr);
-    return;
-  }
   if((getenv("SOMMELIER_DRIVE_TRACE")) != NULL){
     drive_trace = 1;
   }
+  if((user_id = getenv("SOMMELIER_DRIVE_USER_ID")) == NULL){
+    if(drive_trace) fputs("SOMMELIER_DRIVE_USER_ID is not set\n", stderr);
+    return;
+  }
+  if((dataskfile = getenv("SOMMELIER_DRIVE_DATA_SK")) == NULL){
+    if(drive_trace) fputs("SOMMELIER_DRIVE_DATA_SK is not set\n", stderr);
+    return;
+  }
+  if((keywordskfile = getenv("SOMMELIER_DRIVE_KEYWORD_SK")) == NULL){
+    if(drive_trace) fputs("SOMMELIER_DRIVE_KEYWORD_SK is not set\n", stderr);
+    return;
+  }
+  if((base_url = getenv("SOMMELIER_DRIVE_BASE_URL")) == NULL){
+    if(drive_trace) fputs("SOMMELIER_DRIVE_BASE_URL is not set\n", stderr);
+    return;
+  }
+  if((region_name = getenv("SOMMELIER_DRIVE_REGION_NAME")) == NULL){
+    if(drive_trace) fputs("SOMMELIER_DRIVE_REGION_NAME is not set\n", stderr);
+    return;
+  }
+  if((base_dir = getenv("SOMMELIER_DRIVE_BASE_DIR")) == NULL){
+    if(drive_trace) fputs("SOMMELIER_DRIVE_BASE_DIR is not set\n", stderr);
+    return;
+  }
+
   if((userinfo.id = atol(user_id)) == 0){
-    fputs("SOMMELIER_DRIVE_USER_ID is not valid number\n", stderr);
+    if(drive_trace) fputs("SOMMELIER_DRIVE_USER_ID is not valid number\n", stderr);
     return;
   }
   httpclient.base_url = (char *)malloc(strlen(base_url) + 1);
@@ -97,11 +98,11 @@ static void load_drive(void){
 
   int fd_sk;
   if((fd_sk = __open64(dataskfile, O_RDONLY)) == -1){
-    fputs("failed to open data secret key file\n", stderr);
+    if(drive_trace) fputs("failed to open data secret key file\n", stderr);
     return;
   }
   if(fstat(fd_sk, &statbuf) == -1){
-    fputs("failed to get data secret key size\n", stderr);
+    if(drive_trace) fputs("failed to get data secret key size\n", stderr);
     return;
   }
   userinfo.data_sk = (char *)malloc(statbuf.st_size + 1);
@@ -110,11 +111,11 @@ static void load_drive(void){
   close(fd_sk);
 
   if((fd_sk = __open64(keywordskfile, O_RDONLY)) == -1){
-    fputs("failed to open keyword secret key file\n", stderr);
+    if(drive_trace) fputs("failed to open keyword secret key file\n", stderr);
     return;
   }
   if(fstat(fd_sk, &statbuf) == -1){
-    fputs("failed to get keyword secret key size\n", stderr);
+    if(drive_trace) fputs("failed to get keyword secret key size\n", stderr);
     return;
   }
   userinfo.keyword_sk = (char *)malloc(statbuf.st_size + 1);
@@ -123,11 +124,11 @@ static void load_drive(void){
   close(fd_sk);
 
   if(access(base_dir, R_OK|W_OK) != 0){
-    fputs("cannot access drive base directory\n", stderr);
+    if(drive_trace) fputs("cannot access drive base directory\n", stderr);
     return;
   }
   if((drive_base_dirfd = __open64(base_dir, O_RDONLY | O_DIRECTORY)) == -1){
-    fputs("failed to access drive base directory\n", stderr);
+    if(drive_trace) fputs("failed to access drive base directory\n", stderr);
     return;
   }
   drive_base_dir = strdup(base_dir);
@@ -150,10 +151,11 @@ static void load_drive(void){
       DLSYM(crypto_handler, registerUser) &&
       DLSYM(crypto_handler, searchDescendantPathes)){
         drive_loaded = 1;
+        if(drive_trace) fputs("load all functions from libsommelier_drive_client\n", stderr);
     }
   }
   if(drive_loaded != 1){
-    fputs("failed to load libsommelier_drive_client\n", stderr);
+    if(drive_trace) fputs("failed to load libsommelier_drive_client\n", stderr);
   }
 
 }
@@ -166,13 +168,6 @@ static void finalize_drive(void){
   if(drive_base_dirfd > 0) close(drive_base_dirfd);
   if(drive_base_dir) free(drive_base_dir);
   if(crypto_handler) dlclose(crypto_handler);
-  // for(int i=0; i<sizeof(fd_drivepath_table); i++){
-  //   if(fd_drivepath_table[i] != NULL){
-  //     close(i);
-  //     free(fd_drivepath_table[i]);
-  //     fd_drivepath_table[i] = NULL;
-  //   }
-  // }
 }
 
 size_t hexpath(char *dst, const char *path){
@@ -187,7 +182,8 @@ size_t hexpath(char *dst, const char *path){
 
 char *fd_to_drivepath(int dirfd, const char *name){
   char *drivepath = NULL;
-  if(dirfd == AT_FDCWD && drive_loaded && strncmp(drive_prefix, name, drive_prefix_len) == 0){
+  if(!drive_loaded) return NULL;
+  if(dirfd == AT_FDCWD && strncmp(drive_prefix, name, drive_prefix_len) == 0){
     // fd_to_drivepath(AT_FDCWD, "region-name:/A/B") -> /A/B
     drivepath = strdup(name + drive_prefix_len);
   }

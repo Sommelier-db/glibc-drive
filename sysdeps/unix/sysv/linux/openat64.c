@@ -22,6 +22,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <alloca.h>
 #include <sysdep-cancel.h>
 #include <drive_common.h>
 
@@ -59,7 +60,7 @@ __libc_openat64 (int fd, const char *file, int oflag, ...)
             __set_errno(EACCES);
             goto handle_error;
           }
-          if(drive_trace)
+          else if(drive_trace)
             fprintf(stderr, "openat: %s is created\n", drivepath);
         }
         else{
@@ -88,6 +89,8 @@ __libc_openat64 (int fd, const char *file, int oflag, ...)
       if(contents.is_file == 0){
         int dirfd =  SYSCALL_CANCEL(open, drive_base_dir, O_RDONLY | O_DIRECTORY, mode);
         fd_drivepath_table[dirfd] = strdup(drivepath);
+        freeContentsData(contents);
+        free(drivepath);
         return dirfd;
       }
       else if(oflag & O_DIRECTORY){
@@ -102,18 +105,23 @@ __libc_openat64 (int fd, const char *file, int oflag, ...)
     int fd;
 
     if(isexist && ~oflag & O_TRUNC){
-      fd = INLINE_SYSCALL_CALL(openat, drive_base_dirfd, realpath, O_CREAT|O_WRONLY|O_TRUNC, 0644);
+      fd = SYSCALL_CANCEL(openat, drive_base_dirfd, realpath, O_CREAT|O_WRONLY|O_TRUNC, 0644);
+      if(fd == -1){
+        if(drive_trace) fprintf(stderr, "openat: failed to open %s\n", realpath);
+        freeContentsData(contents);
+        free(realpath);
+        __set_errno(EACCES);
+        goto handle_error;
+      }
       write(fd, contents.file_bytes_ptr, contents.file_bytes_len);
       __close(fd);
       freeContentsData(contents);
     }
 
-    fd = INLINE_SYSCALL_CALL (openat, drive_base_dirfd, realpath, oflag | O_LARGEFILE, mode);
+    fd = SYSCALL_CANCEL (openat, drive_base_dirfd, realpath, oflag | O_LARGEFILE, mode);
     free(realpath);
 
-    // if((oflag & O_WRONLY) | (oflag & O_RDWR)){
-      fd_drivepath_table[fd] = strdup(drivepath);
-    // }
+    if(fd >= 0) fd_drivepath_table[fd] = strdup(drivepath);
     free(drivepath);
     return fd;
 

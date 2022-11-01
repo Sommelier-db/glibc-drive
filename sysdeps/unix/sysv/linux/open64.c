@@ -52,21 +52,21 @@ __libc_open64 (const char *file, int oflag, ...)
 			 mode);
 }
 
-// int
-// mkdir (const char *path, mode_t mode)
-// {
-//   if(drive_loaded && strncmp(drive_prefix, path, drive_prefix_len) == 0){
-//     const char *drivepath = path + drive_prefix_len;
-//     if(addDirectory(httpclient, userinfo, drivepath) == 1){
-//       return 0;
-//     }
-//     else{
-//       __set_errno(EINVAL);
-//       return -1;
-//     }
-//   }
-//   return INLINE_SYSCALL (mkdirat, 3, AT_FDCWD, path, mode);
-// }
+int mkdir (const char *path, mode_t mode)
+{
+  if(drive_loaded && strncmp(drive_prefix, path, drive_prefix_len) == 0){
+    const char *drivepath = path + drive_prefix_len;
+    if(addDirectory(httpclient, userinfo, drivepath) == 1){
+      if(drive_trace) fprintf(stderr, "mkdir: create directory %s\n", drivepath);
+      return 0;
+    }
+    else{
+      __set_errno(EINVAL);
+      return -1;
+    }
+  }
+  return INLINE_SYSCALL (mkdirat, 3, AT_FDCWD, path, mode);
+}
 
 strong_alias (__libc_open64, __open64)
 libc_hidden_weak (__open64)

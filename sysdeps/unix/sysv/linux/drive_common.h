@@ -76,6 +76,6 @@ extern struct CUserInfo userinfo;
 extern struct CPublicKeys pubkeys;
 
 extern size_t hexpath(char *dst, const char *path);
-extern char*fd_to_drivepath(int, const char *);
+extern char* fd_to_drivepath(int, const char *);
 
 #endif
