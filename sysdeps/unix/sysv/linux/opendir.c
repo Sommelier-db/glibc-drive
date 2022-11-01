@@ -89,7 +89,7 @@ __opendir (const char *name)
   if(drive_loaded && strncmp(drive_prefix, name, drive_prefix_len) == 0){
     const char *drivepath = name + drive_prefix_len;
     struct CPathVec pathvec;
-    int fd = -1;
+    int fd;
     fd = __openat(drive_base_dirfd, drivepath, opendir_oflags);
     if(fd == -1){
       return NULL;

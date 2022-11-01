@@ -35,30 +35,6 @@ statx (int fd, const char *path, int flags,
   if((drivepath = fd_to_drivepath(fd, path)) != NULL){
     free(drivepath);
     return statx_generic(fd, path, flags, mask,buf);
-    // struct CContentsData contents;
-    // contents =  openFilepath(httpclient, userinfo, drivepath);
-    // if(contents.is_file == -1){
-    //   if(drive_trace) fprintf(stderr, "statx: filed to get stat of %s\n", drivepath);
-    //   freeContentsData(contents);
-    //   free(drivepath);
-    //   return -1;
-    // }
-    // if(drive_trace) fprintf(stderr, "statx: get stat of %s\n", drivepath);
-    // memset(buf, 0, sizeof(struct stat));
-    // if(contents.is_file){
-    //   buf->stx_mode = S_IFREG;
-    // }
-    // else{
-    //   buf->stx_mode = S_IFDIR;
-    // }
-    // buf->stx_mode |= S_IRUSR;
-    // buf->stx_mode |= S_IWUSR;
-    // buf->stx_uid =  getuid();
-    // buf->stx_gid = getgid();
-    // buf->stx_size = contents.file_bytes_len;
-    // freeContentsData(contents);
-    // free(drivepath);
-    // return 0;
   }
 #endif
 

@@ -88,9 +88,8 @@ __libc_openat64 (int fd, const char *file, int oflag, ...)
       contents = openFilepath(httpclient, userinfo, drivepath);
       if(contents.is_file == 0){
         int dirfd =  SYSCALL_CANCEL(open, drive_base_dir, O_RDONLY | O_DIRECTORY, mode);
-        fd_drivepath_table[dirfd] = strdup(drivepath);
+        fd_drivepath_table[dirfd] = drivepath;
         freeContentsData(contents);
-        free(drivepath);
         return dirfd;
       }
       else if(oflag & O_DIRECTORY){
@@ -100,7 +99,7 @@ __libc_openat64 (int fd, const char *file, int oflag, ...)
       }
       if(drive_trace) fprintf(stderr, "openat: get contents of %s\n", drivepath);
     }
-    char *realpath = (char *)malloc(strlen(drivepath) * 2 + 1);
+    char *realpath = (char *)alloca(strlen(drivepath) * 2 + 1);
     hexpath(realpath, drivepath);
     int fd;
 
@@ -109,7 +108,6 @@ __libc_openat64 (int fd, const char *file, int oflag, ...)
       if(fd == -1){
         if(drive_trace) fprintf(stderr, "openat: failed to open %s\n", realpath);
         freeContentsData(contents);
-        free(realpath);
         __set_errno(EACCES);
         goto handle_error;
       }
@@ -119,10 +117,10 @@ __libc_openat64 (int fd, const char *file, int oflag, ...)
     }
 
     fd = SYSCALL_CANCEL (openat, drive_base_dirfd, realpath, oflag | O_LARGEFILE, mode);
-    free(realpath);
 
-    if(fd >= 0) fd_drivepath_table[fd] = strdup(drivepath);
-    free(drivepath);
+    if(fd >= 0) fd_drivepath_table[fd] = drivepath;
+    else free(drivepath);
+  
     return fd;
 
     handle_error:

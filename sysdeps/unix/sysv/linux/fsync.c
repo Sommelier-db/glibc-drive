@@ -42,16 +42,14 @@ fsync (int fd)
       __set_errno(EINVAL);
       return -1;
     }
-    char *realpath = (char *)malloc(strlen(drivepath) * 2 + 1);
+    char *realpath = (char *)alloca(strlen(drivepath) * 2 + 1);
     hexpath(realpath, drivepath);
     int rfd = SYSCALL_CANCEL (openat, drive_base_dirfd, realpath, O_RDONLY);
     if(rfd == -1){
       if(drive_trace) fprintf(stderr, "fsync: failed to reopen %s:(%s)\n", realpath, drivepath);
-      free(realpath);
       free(drivepath);
       return -1;
     }
-    free(realpath);
 
     fstat(rfd, &statbuf);
     // void *mapaddr = mmap(NULL, statbuf.st_size, PROT_READ|PROT_WRITE, MAP_PRIVATE, fd, 0);
@@ -59,6 +57,8 @@ fsync (int fd)
     read(rfd, databuf, statbuf.st_size);
     if(modifyFile(httpclient, userinfo, drivepath, databuf, statbuf.st_size) != 1){
       if(drive_trace) fprintf(stderr, "fsync: failed to modify %s\n", drivepath);
+      free(databuf);
+      free(drivepath);
       return -1;
     }
     if(drive_trace) fprintf(stderr, "fsync: modify contents of %s size: %ld\n", drivepath, statbuf.st_size);

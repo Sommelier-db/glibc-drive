@@ -21,7 +21,7 @@
 #include <not-cancel.h>
 #include <sys/mman.h>
 #include <stdio.h>
-#include <assert.h>
+#include <alloca.h>
 #include <drive_common.h>
 
 /* Close the file descriptor FD.  */
@@ -43,16 +43,14 @@ __close (int fd)
       free(drivepath);
       return -1;
     }
-    char *realpath = (char *)malloc(strlen(drivepath) * 2 + 1);
+    char *realpath = (char *)alloca(strlen(drivepath) * 2 + 1);
     hexpath(realpath, drivepath);
     int rfd = SYSCALL_CANCEL (openat, drive_base_dirfd, realpath, O_RDONLY);
     if(rfd == -1){
       if(drive_trace) fprintf(stderr, "close: failed to reopen %s:(%s)\n", realpath, drivepath);
-      free(realpath);
       free(drivepath);
       return -1;
     }
-    free(realpath);
 
     fstat(rfd, &statbuf);
     // void *mapaddr = mmap(NULL, statbuf.st_size, PROT_READ|PROT_WRITE, MAP_PRIVATE, fd, 0);
@@ -60,9 +58,8 @@ __close (int fd)
     read(rfd, databuf, statbuf.st_size);
     if(modifyFile(httpclient, userinfo, drivepath, databuf, statbuf.st_size) != 1){
       if(drive_trace) fprintf(stderr, "close: failed to modify %s\n", drivepath);
-      return SYSCALL_CANCEL (close, rfd);
     }
-    if(drive_trace) fprintf(stderr, "close: modify contents of %s size: %ld\n", drivepath, statbuf.st_size);
+    else if(drive_trace) fprintf(stderr, "close: modify contents of %s size: %ld\n", drivepath, statbuf.st_size);
     // munmap(mapaddr, statbuf.st_size);
     free(databuf);
     free(drivepath);

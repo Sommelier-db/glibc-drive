@@ -48,6 +48,7 @@ __readdir64 (DIR *dirp)
     free(drivepath);
     if(contents.is_file == -1){
       if(drive_trace) fprintf(stderr, "readdir: failed to get contents of %s\n", dp->d_name);
+      freeContentsData(contents);
       return NULL;
     }
     if(drive_trace) fprintf(stderr, "readdir: get contents of %s\n", dp->d_name);
