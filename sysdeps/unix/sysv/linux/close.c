@@ -36,6 +36,7 @@ __close (int fd)
     fd_drivepath_table[fd] = NULL;
     fstat(fd, &statbuf);
     if(! S_ISREG(statbuf.st_mode) || ! (fcntl(fd, F_GETFL) & (O_WRONLY|O_RDWR))){
+      if(drive_trace) fprintf(stderr, "close: close rdonly file %s\n", drivepath);
       free(drivepath);
       return SYSCALL_CANCEL (close, fd);
     }

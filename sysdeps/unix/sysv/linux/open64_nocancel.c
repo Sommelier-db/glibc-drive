@@ -22,6 +22,7 @@
 #include <stdarg.h>
 
 #include <not-cancel.h>
+#include <drive_common.h>
 
 int
 __open64_nocancel (const char *file, int oflag, ...)
@@ -35,6 +36,13 @@ __open64_nocancel (const char *file, int oflag, ...)
       mode = va_arg (arg, int);
       va_end (arg);
     }
+
+#if DRIVE_EXT
+  if(drive_loaded && strncmp(drive_prefix, file, drive_prefix_len) == 0){
+    const char *drivepath = file + drive_prefix_len;
+    return __openat64(drive_base_dirfd, drivepath, oflag, mode);
+  }
+#endif
 
   return INLINE_SYSCALL_CALL (openat, AT_FDCWD, file, oflag | O_LARGEFILE,
 			      mode);

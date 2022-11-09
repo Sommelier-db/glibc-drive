@@ -19,10 +19,16 @@
 #include <unistd.h>
 #include <sysdep-cancel.h>
 #include <not-cancel.h>
+#include <drive_common.h>
 
 int
 __close_nocancel (int fd)
 {
+#if DRIVE_EXT
+  if(fd_drivepath_table[fd] != NULL){
+    return __close(fd);
+  }
+#endif
   return INLINE_SYSCALL_CALL (close, fd);
 }
 libc_hidden_def (__close_nocancel)

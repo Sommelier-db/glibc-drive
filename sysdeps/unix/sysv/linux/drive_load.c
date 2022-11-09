@@ -16,7 +16,8 @@ char *keyword_pk;
 
 char *drive_base_dir;
 int drive_base_dirfd;
-char *drive_prefix;
+const char *drive_prefix;
+char *drive_home_dir;
 size_t drive_prefix_len;
 char *fd_drivepath_table[256];
 int drive_loaded;
@@ -53,9 +54,9 @@ static void __attribute__((destructor)) finalize_drive(void);
 
 static void load_drive(void){
   struct stat statbuf;
-  char *user_id, *dataskfile, *keywordskfile, *base_url, *region_name, *base_dir;
+  char *user_id, *dataskfile, *keywordskfile, *base_url, *region_name, *home_dir, *base_dir, *library_path;
   if((getenv("SOMMELIER_DRIVE_TRACE")) != NULL){
-    drive_trace = 1;
+    drive_trace = atoi(getenv("SOMMELIER_DRIVE_TRACE"));
   }
   if((user_id = getenv("SOMMELIER_DRIVE_USER_ID")) == NULL){
     if(drive_trace) fputs("SOMMELIER_DRIVE_USER_ID is not set\n", stderr);
@@ -77,8 +78,16 @@ static void load_drive(void){
     if(drive_trace) fputs("SOMMELIER_DRIVE_REGION_NAME is not set\n", stderr);
     return;
   }
+  if((home_dir = getenv("SOMMELIER_DRIVE_HOME_DIR")) == NULL){
+    if(drive_trace) fputs("SOMMELIER_DRIVE_HOME_DIR is not set\n", stderr);
+    return;
+  }
   if((base_dir = getenv("SOMMELIER_DRIVE_BASE_DIR")) == NULL){
     if(drive_trace) fputs("SOMMELIER_DRIVE_BASE_DIR is not set\n", stderr);
+    return;
+  }
+  if((library_path = getenv("SOMMELIER_DRIVE_LIBRARY_PATH")) == NULL){
+    if(drive_trace) fputs("SOMMELIER_DRIVE_LIBRARY_PATH is not set\n", stderr);
     return;
   }
 
@@ -89,12 +98,12 @@ static void load_drive(void){
   httpclient.base_url = (char *)malloc(strlen(base_url) + 1);
   strcpy(httpclient.base_url, base_url);
 
-  drive_prefix_len = strlen(region_name) + 1;
-  drive_prefix = (char *)malloc(drive_prefix_len + 1);
-  strncpy(drive_prefix, region_name, drive_prefix_len + 1);
-  drive_prefix[drive_prefix_len-1] = ':';
-  httpclient.region_name = (char *)malloc(strlen(region_name) + 1);
-  strcpy(httpclient.region_name, region_name);
+  drive_prefix = "sommelier:";
+  drive_prefix_len = strlen(drive_prefix);
+
+  httpclient.region_name = strdup(region_name);
+
+  drive_home_dir = strdup(home_dir);
 
   int fd_sk;
   if((fd_sk = __open64(dataskfile, O_RDONLY)) == -1){
@@ -134,7 +143,7 @@ static void load_drive(void){
   drive_base_dir = strdup(base_dir);
   fd_drivepath_table[drive_base_dirfd] = strdup("");
   
-  if((crypto_handler = dlopen("libsommelier_drive_client.so", RTLD_LAZY | RTLD_LOCAL)) != NULL){
+  if((crypto_handler = dlopen(library_path, RTLD_LAZY | RTLD_LOCAL)) != NULL){
     if(DLSYM(crypto_handler, addDirectory) &&
       DLSYM(crypto_handler, addFile) &&
       DLSYM(crypto_handler, addReadPermission) &&
@@ -165,6 +174,7 @@ static void finalize_drive(void){
   if(httpclient.region_name) free(httpclient.region_name);
   if(userinfo.data_sk) free(userinfo.data_sk);
   if(userinfo.keyword_sk) free(userinfo.keyword_sk);
+  if(drive_home_dir) free(drive_home_dir);
   if(drive_base_dirfd > 0) close(drive_base_dirfd);
   if(drive_base_dir) free(drive_base_dir);
   if(crypto_handler) dlclose(crypto_handler);
@@ -182,9 +192,10 @@ size_t hexpath(char *dst, const char *path){
 
 char *fd_to_drivepath(int dirfd, const char *name){
   char *drivepath = NULL;
+  char *end;
   if(!drive_loaded) return NULL;
   if(dirfd == AT_FDCWD && strncmp(drive_prefix, name, drive_prefix_len) == 0){
-    // fd_to_drivepath(AT_FDCWD, "region-name:/A/B") -> /A/B
+    // fd_to_drivepath(AT_FDCWD, "<drive_prefix>/A/B") -> /A/B
     drivepath = strdup(name + drive_prefix_len);
   }
 
@@ -204,6 +215,13 @@ char *fd_to_drivepath(int dirfd, const char *name){
         strcpy(drivepath + base_len + 1, name);
       }
     }
+  }
+  else{
+    return NULL;
+  }
+  end = &drivepath[strlen(drivepath) - 1];
+  if(*end == '/'){
+    *end = 0;
   }
   return drivepath;
 }

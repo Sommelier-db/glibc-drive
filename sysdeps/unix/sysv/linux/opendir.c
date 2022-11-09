@@ -85,17 +85,21 @@ __opendir (const char *name)
   if (__glibc_unlikely (invalid_name (name)))
     return NULL;
   
+  return opendir_tail (__open_nocancel (name, opendir_oflags));
+}
+weak_alias (__opendir, opendir)
+
+DIR *
+__alloc_dir (int fd, bool close_fd, int flags,
+	     const struct __stat64_t64 *statp)
+{
+
 #if DRIVE_EXT
-  if(drive_loaded && strncmp(drive_prefix, name, drive_prefix_len) == 0){
-    const char *drivepath = name + drive_prefix_len;
+  if(drive_loaded && fd_drivepath_table[fd] != NULL){
+    const char *drivepath = fd_drivepath_table[fd];
     struct CPathVec pathvec;
-    int fd;
-    fd = __openat(drive_base_dirfd, drivepath, opendir_oflags);
-    if(fd == -1){
-      return NULL;
-    }
     pathvec = getChildrenPathes(httpclient, userinfo, drivepath);
-    if(drive_trace) fprintf(stderr, "opendir: get children entries of %s\n", drivepath);
+    if(drive_trace) fprintf(stderr, "opendir: get entries of %s\n", drivepath);
     size_t allocation = sizeof(struct dirent64) * pathvec.len;
 
     DIR *dirp = (DIR *) malloc (sizeof (DIR) + allocation);
@@ -120,14 +124,6 @@ __opendir (const char *name)
   }
 #endif
 
-  return opendir_tail (__open_nocancel (name, opendir_oflags));
-}
-weak_alias (__opendir, opendir)
-
-DIR *
-__alloc_dir (int fd, bool close_fd, int flags,
-	     const struct __stat64_t64 *statp)
-{
   /* We have to set the close-on-exit flag if the user provided the
      file descriptor.  */
   if (!close_fd

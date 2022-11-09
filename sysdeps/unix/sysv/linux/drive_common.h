@@ -27,9 +27,7 @@ typedef struct CPublicKeys {
 typedef struct CContentsData {
   int is_file;
   size_t num_readable_users;
-  size_t num_writeable_users;
   uint64_t *readable_user_path_ids;
-  uint64_t *writeable_user_path_ids;
   uint8_t *file_bytes_ptr;
   size_t file_bytes_len;
 } CContentsData;
@@ -59,13 +57,12 @@ extern struct CUserInfo (*registerUser)(struct CHttpClient, const char *);
 extern int (*searchDescendantPathes)(struct CHttpClient, struct CUserInfo, const char *, char **);
 
 extern char *data_sk;
-extern char *data_pk;
 extern char *keyword_sk;
-extern char *keyword_pk;
+extern char *drive_home_dir;
 
 extern char *drive_base_dir;
 extern int drive_base_dirfd;
-extern char *drive_prefix;
+extern const char *drive_prefix;
 extern size_t drive_prefix_len;
 extern char *fd_drivepath_table[256];
 extern int drive_loaded;

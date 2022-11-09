@@ -121,9 +121,6 @@ fstatat64_time64_stat (int fd, const char *file, struct __stat64_t64 *buf,
     }
     buf->st_mode |= S_IRUSR;
     buf->st_mode |= S_IWUSR;
-    // for(int i=0;i<contents.num_writeable_users; i++){
-    //   if(contents.writeable_user_path_ids[i] == userinfo.id + 1) buf->st_mode |= S_IWUSR;
-    // }
     buf->st_uid = getuid();
     buf->st_gid = getgid();
     buf->st_size = contents.file_bytes_len;

@@ -65,8 +65,22 @@ int mkdir (const char *path, mode_t mode)
       return -1;
     }
   }
-  return INLINE_SYSCALL (mkdirat, 3, AT_FDCWD, path, mode);
+  return INLINE_SYSCALL_CALL (mkdirat, AT_FDCWD, path, mode);
 }
+
+// int access(const char* file, int type){
+//   if(drive_loaded && strncmp(drive_prefix, file, drive_prefix_len) == 0){
+//     const char *drivepath = file + drive_prefix_len;
+//     if(isExistFilepath(httpclient, userinfo, drivepath) == 1){
+//       return 0;
+//     }
+//     else{
+//       __set_errno(ENOENT);
+//       return -1;
+//     }
+//   }
+//   return INLINE_SYSCALL (access, 2, file, type);
+// }
 
 strong_alias (__libc_open64, __open64)
 libc_hidden_weak (__open64)
