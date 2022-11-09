@@ -49,10 +49,10 @@ struct CContentsData (*openFilepath)(struct CHttpClient, struct CUserInfo, const
 struct CUserInfo (*registerUser)(struct CHttpClient, const char *);
 int (*searchDescendantPathes)(struct CHttpClient, struct CUserInfo, const char *, char **);
 
-static void __attribute__((constructor)) load_drive(void);
-static void __attribute__((destructor)) finalize_drive(void);
+static void __attribute__((constructor)) init_drive(void);
+static void __attribute__((destructor)) fini_drive(void);
 
-static void load_drive(void){
+static void init_drive(void){
   struct stat statbuf;
   char *user_id, *dataskfile, *keywordskfile, *base_url, *region_name, *home_dir, *base_dir, *library_path;
   if((getenv("SOMMELIER_DRIVE_TRACE")) != NULL){
@@ -169,7 +169,7 @@ static void load_drive(void){
 
 }
 
-static void finalize_drive(void){
+static void fini_drive(void){
   if(httpclient.base_url) free(httpclient.base_url);
   if(httpclient.region_name) free(httpclient.region_name);
   if(userinfo.data_sk) free(userinfo.data_sk);
@@ -188,7 +188,6 @@ size_t hexpath(char *dst, const char *path){
   dst[i*2] = 0;
   return i*2;
 }
-
 
 char *fd_to_drivepath(int dirfd, const char *name){
   char *drivepath = NULL;
